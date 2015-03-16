@@ -98,6 +98,9 @@ class InfoBot():
                 parsing = parsing.replace("\t", "")
             parsing += "(Want verbose output? Say `InfoBot -v` or `InfoBot --verbose`!"
         else:
+            # each section is split up to make it easier to make changes
+            # without breaking print formatting order
+
             # content ("hello") and recipient identifier
             parsing += ("A message with content `\"%s\"` was sent to recipient_id `%s`.\n\n\n"
                         % (msg["content"], msg["recipient_id"]))
