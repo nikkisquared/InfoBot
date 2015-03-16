@@ -140,7 +140,7 @@ class InfoBot():
 zulip_username = os.environ["ZULIP_USR"]
 zulip_api_key = os.environ["ZULIP_API"]
 key_word = "InfoBot"
-subscribed_streams = ["test-bot"]
+subscribed_streams = []
 
 bot = InfoBot(zulip_username, zulip_api_key, key_word, subscribed_streams)
 bot.main()
