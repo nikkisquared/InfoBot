@@ -5,5 +5,5 @@ InfoBot just needs to be named at the start of a message, and it will reply with
 API
 ===
 InfoBot can only be used by Hacker School Zulip users. All you have to do to use it is say "InfoBot" and it will reply. It has two optional parameters:  
--v, --verbose   turns on verbose output
--nb, --no-box   stops output from being boxed
+-v, --verbose   (turns on verbose output)  
+-nb, --no-box   (stops output from being boxed)
