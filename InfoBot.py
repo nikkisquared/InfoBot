@@ -203,10 +203,8 @@ class InfoBot():
         self.client.call_on_each_message(lambda msg: self.respond(msg))
 
 
-# zulip_username = os.environ["ZULIP_USR"]
-# zulip_api_key = os.environ["ZULIP_API"]
-zulip_username = "InfoBot-bot@students.hackerschool.com"
-zulip_api_key = "6hIZshlsmkaB302hmo6hgOqzNHhHQfOh"
+zulip_username = os.environ["ZULIP_USR"]
+zulip_api_key = os.environ["ZULIP_API"]
 key_word = "InfoBot"
 subscribed_streams = []
 
