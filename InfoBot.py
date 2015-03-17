@@ -17,12 +17,17 @@ class InfoBot():
         self.client = zulip.Client(zulip_username, zulip_api_key)
         self.subscriptions = self.subscribe_to_streams()
 
-        self.output_order = [
+        # hand-picked order that public message content should be displayed
+        self.parse_order = [
             "content", "recipient_id", "type", "display_recipient",
             "subject", "subject_links", "id", "timestamp", "content_type",
             "sender_full_name", "sender_short_name", "sender_id",
             "sender_email", "sender_domain", "client",
             "gravatar_hash", "avatar_url"]
+
+        # hand-picked order for "display_recipient" on private messages
+        self.display_recipient_order = ["full_name", "short_name", "id", "email",
+            "domain", "is_mirror_dummy"]
 
     @property
     def streams(self):
@@ -55,7 +60,7 @@ class InfoBot():
     def respond(self, msg):
         """
         If key_word is the start of msg, it parses the message and options,
-        then calls send_message()
+        then calls send_message() with the new message content
         """
 
         content = msg["content"].lower()
@@ -63,24 +68,29 @@ class InfoBot():
         # makes sure InfoBot was the first word
         if content.find(self.key_word) == 0:
 
+            private = msg["type"] == "private"
             verbose = "-v" in content or "--verbose" in content
             box = "-nb" not in content and "--no-box" not in content
-            msg["content"] = self.parse_message(msg, verbose, box)
+
+            msg["content"] = self.parse_message(msg, private, verbose, box)
             self.send_message(msg)
-               
+            
 
     def send_message(self, msg):
-        """Sends a message to zulip stream"""
+        """Formats and sends a message to a zulip stream or user"""
 
-        self.client.send_message({
-            "type": "stream",
-            "subject": msg["subject"],
-            "to": msg["display_recipient"],
-            "content": msg["content"]
-            })
+        if msg["type"] == "private":
+            msg["to"] = msg["sender_email"]
+        else:
+            msg["to"] = msg["display_recipient"]
+
+        message = {}
+        for item in ["type", "subject", "to", "content"]:
+            message[item] = msg[item]
+        self.client.send_message(message)
 
 
-    def parse_message(self, msg, verbose, box):
+    def parse_message(self, msg, private, verbose, box):
         """
         Parses a given message to identify each value
         output can be verbose or not, by setting verbose to true or false
@@ -91,47 +101,100 @@ class InfoBot():
 
         parsing = u""
 
+        # this is the only value that changes for public vs private
+        if private:
+            display_recipient = self.parse_display_recipient(msg, verbose)
+        else:
+            display_recipient = msg["display_recipient"]
+
         if not verbose:
-            for key in self.output_order:
-                parsing += "%s%s\n" % ("\t{:<20}".format(key), msg[key])
+            for key in self.parse_order:
+                info = msg[key] if key != "display_recipient" else display_recipient
+                parsing += "%s%s\n" % ("\t{:<20}".format(key), info)
+
             if not box:
                 parsing = parsing.replace("\t", "")
             parsing += "(Want verbose output? Say `InfoBot -v` or `InfoBot --verbose`!"
+                
         else:
             # each section is split up to make it easier to make changes
             # without breaking print formatting order
 
+            # gotta handle implementing display_recipient and what follows
+            # based on what data it is going to mention
+            if private:
+                # subject is a blank in this case
+                display_recipient += "The subject was an empty string"
+            else:
+                display_recipient = ("and sent to display_recipient (or `stream`) "
+                                    "`\"%s\"`, at subject (or topic) `\"%s\"`"
+                                    % (msg["display_recipient"], msg["subject"]))
+
             # content ("hello") and recipient identifier
-            parsing += ("A message with content `\"%s\"` was sent to recipient_id `%s`.\n\n\n"
+            parsing += ("A message with content `\"%s\"` was sent to "
+                        "recipient_id `%s`.\n\n"
                         % (msg["content"], msg["recipient_id"]))
-            # destination type, stream:topic [subject links]
-            parsing += ("The destination was of type `\"%s\"` and sent to "
-                        "display_recipient (or `%s`) `\"%s\"`, at subject "
-                        "(or topic) `\"%s\"`, along with subject_links `%s`.\n\n\n"
-                        % (msg["type"], msg["type"], msg["display_recipient"],
-                            msg["subject"], msg["subject_links"]))
+            # destination type, stream/user data:subject (preconfigured), subject links
+            parsing += ("The destination was of type `\"%s\"` %s , along with "
+                        "subject_links `%s`.\n\n"
+                        % (msg["type"], display_recipient, msg["subject_links"]))
             # message id, timestamp, and content type
             parsing += ("The message has an id of `%s`, sent at timestamp `%s`, "
-                        "and has the content_type `\"%s\"`.\n\n\n"
+                        "and has the content_type `\"%s\"`.\n\n"
                         % (msg["id"], msg["timestamp"], msg["content_type"]))
             # sender full name, short name, id, and email
             parsing += ("The message came from sender_full_name `\"%s\"`, known "
                         "also as sender_short_name `\"%s\"` who has a sender_id "
-                        "of `%s`, and a sender_email of `\"%s\"`.\n\n\n"
+                        "of `%s`, and a sender_email of `%s`.\n\n"
                         % (msg["sender_full_name"], msg["sender_short_name"],
                             msg["sender_id"], msg["sender_email"]))
             # sender domain, client
-            parsing += ("The sender_domain is `\"%s\"`, using client `\"%s\"`.\n\n\n"
+            parsing += ("The sender_domain is `%s`, using client `\"%s\"`.\n\n"
                         % (msg["sender_domain"], msg["client"]))
             # gravatar hash and avatar url
             parsing += ("The gravatar_hash of the sender's avatar is `%s`, "
-                        "and their avatar_url is `%s`.\n\n\n"
+                        "and their avatar_url is `%s`.\n\n"
                         % (msg["gravatar_hash"], msg["avatar_url"]))
             
             parsing = parsing.replace("\"", "") if box else parsing.replace("`", "")
             parsing += "\n(Don't want verbose output? Say just `InfoBot`!"
-            
+        
         parsing += "\nYou can also turn off box printing with `-nb` or `--no-box`!)"
+        return parsing
+
+
+    def parse_display_recipient(self, msg, verbose):
+        """Parses display_recipient part of msg for private messages"""
+
+        parsing = u""
+        firstNewline = False
+
+        if not verbose:
+
+            for display_recipient in msg["display_recipient"]:
+                for key in self.display_recipient_order:
+                    parsing += "\n%s%s" % ("\t\t{:<20}".format(key), display_recipient[key])
+
+                if not firstNewline:
+                    parsing += "\n"
+                    firstNewline = True
+
+        else:
+            # a shift in tense makes clear if this is about the reciever or sender
+            tense = "to"
+            # destination and sender information
+            for segment in range(len(msg["display_recipient"])):
+
+                info = msg["display_recipient"][segment]
+
+                parsing += ("\n\nThe message was sent %s a zulip user with the full_name "
+                            "`\"%s\"`, also known as short_name `\"%s\"`, who has the "
+                            "id `%s`, and an email of `%s`.\n\n"
+                            "Also, their domain is `%s` and is_mirror_dummy is `%s`.\n\n"
+                            % (tense, info["full_name"], info["short_name"], info["id"],
+                                info["email"], info["domain"], info["is_mirror_dummy"]))
+                tense = "by"
+        
         return parsing
 
 
@@ -140,8 +203,10 @@ class InfoBot():
         self.client.call_on_each_message(lambda msg: self.respond(msg))
 
 
-zulip_username = os.environ["ZULIP_USR"]
-zulip_api_key = os.environ["ZULIP_API"]
+# zulip_username = os.environ["ZULIP_USR"]
+# zulip_api_key = os.environ["ZULIP_API"]
+zulip_username = "InfoBot-bot@students.hackerschool.com"
+zulip_api_key = "6hIZshlsmkaB302hmo6hgOqzNHhHQfOh"
 key_word = "InfoBot"
 subscribed_streams = []
 
