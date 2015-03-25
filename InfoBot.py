@@ -1,12 +1,13 @@
 import zulip
-import json, requests, os, textwrap
+import json
+import requests, os
 
 
 class InfoBot():
 
     def __init__(self, zulip_username, zulip_api_key, key_word, subscribed_streams=[]):
         """
-        InfoBot takes a zulip username and api key, a word or phrase to respond to,
+        InfoBot takes a zulip username and api key, a word to respond to,
         and a list of the zulip streams it should be active in.
         """
         self.username = zulip_username
@@ -17,7 +18,7 @@ class InfoBot():
         self.client = zulip.Client(zulip_username, zulip_api_key)
         self.subscriptions = self.subscribe_to_streams()
 
-        # hand-picked order that public message content should be displayed
+        # custom order that public message content should be displayed
         self.parse_order = [
             "content", "recipient_id", "type", "display_recipient",
             "subject", "subject_links", "id", "timestamp", "content_type",
@@ -25,9 +26,9 @@ class InfoBot():
             "sender_email", "sender_domain", "client",
             "gravatar_hash", "avatar_url"]
 
-        # hand-picked order for "display_recipient" on private messages
-        self.display_recipient_order = ["full_name", "short_name", "id", "email",
-            "domain", "is_mirror_dummy"]
+        # custom order for "display_recipient" on private messages
+        self.display_recipient_order = ["full_name", "short_name", "id",
+            "email", "domain", "is_mirror_dummy"]
 
     @property
     def streams(self):
@@ -101,6 +102,13 @@ class InfoBot():
 
         parsing = u""
 
+        # truncates newlines so output is more readable
+        if verbose:
+            msg["content"] = msg["content"].replace("\n", "\\n")
+        # adds tabs after newlines to prevent long messages from breaking the box
+        elif box:
+            msg["content"] = msg["content"].replace("\n", "\n\t\t\t\t\t\t")
+
         # this is the only value that changes for public vs private
         if private:
             display_recipient = self.parse_display_recipient(msg, verbose)
@@ -167,17 +175,15 @@ class InfoBot():
         """Parses display_recipient part of msg for private messages"""
 
         parsing = u""
-        firstNewline = False
+        first_newline = False
 
         if not verbose:
-
             for display_recipient in msg["display_recipient"]:
                 for key in self.display_recipient_order:
                     parsing += "\n%s%s" % ("\t\t{:<20}".format(key), display_recipient[key])
-
-                if not firstNewline:
+                if not first_newline:
                     parsing += "\n"
-                    firstNewline = True
+                    first_newline = True
 
         else:
             # a shift in tense makes clear if this is about the reciever or sender
@@ -203,8 +209,8 @@ class InfoBot():
         self.client.call_on_each_message(lambda msg: self.respond(msg))
 
 
-zulip_username = os.environ["ZULIP_USR"]
-zulip_api_key = os.environ["ZULIP_API"]
+zulip_username = os.environ["INFOBOT_USR"]
+zulip_api_key = os.environ["INFOBOT_API"]
 key_word = "InfoBot"
 subscribed_streams = []
 
