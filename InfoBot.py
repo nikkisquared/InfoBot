@@ -63,16 +63,13 @@ class InfoBot():
         If key_word is the start of msg, it parses the message and options,
         then calls send_message() with the new message content
         """
-
+        
         content = msg["content"].lower()
+        private = msg["type"] == "private"
+        verbose = ("-v" in content) or ("--verbose" in content)
+        box = ("-nb" not in content) and ("--no-box" not in content)
 
-        # makes sure InfoBot was the first word
-        if content.find(self.key_word) == 0:
-
-            private = msg["type"] == "private"
-            verbose = "-v" in content or "--verbose" in content
-            box = "-nb" not in content and "--no-box" not in content
-
+        if content.find(self.key_word) == 0 or private:
             msg["content"] = self.parse_message(msg, private, verbose, box)
             self.send_message(msg)
             
