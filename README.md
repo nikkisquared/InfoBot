@@ -4,6 +4,6 @@ InfoBot just needs to be named at the start of a message, and it will reply with
 
 API
 ===
-InfoBot can only be used by Hacker School Zulip users. All you have to do to use it is say "InfoBot", either in a public topic or in a private message, and it will reply. There is a slight difference in output for public topics and private messages. It has two optional parameters:  
+InfoBot can only be used by Hacker School Zulip users. All you have to do to use it is say "InfoBot" in a public topic, or say anything to it in a private message, and it will reply. There is a slight difference in output for public topics and private messages. It has two optional parameters:  
 -v, --verbose   (turns on verbose output)  
 -nb, --no-box   (stops output from being boxed)

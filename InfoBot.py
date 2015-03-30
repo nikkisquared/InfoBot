@@ -1,6 +1,8 @@
 import zulip
+import dotenv
 import json
-import requests, os
+import requests
+import os
 
 
 class InfoBot():
@@ -206,6 +208,7 @@ class InfoBot():
         self.client.call_on_each_message(lambda msg: self.respond(msg))
 
 
+dotenv.read_dotenv()
 zulip_username = os.environ["INFOBOT_USR"]
 zulip_api_key = os.environ["INFOBOT_API"]
 key_word = "InfoBot"
